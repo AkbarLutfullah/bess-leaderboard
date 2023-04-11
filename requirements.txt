@@ -4,3 +4,8 @@ plotly
 plotly-express
 matplotlib
 streamlit
+black
+openpyxl
+requests
+ElexonDataPortal
+python-dotenv
