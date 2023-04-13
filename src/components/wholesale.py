@@ -9,6 +9,7 @@ import streamlit as st
 
 from src.exception import CustomException
 from src.logger import logger
+from src.utils import get_wavg
 from dotenv import load_dotenv
 from ElexonDataPortal import api
 import datetime
@@ -92,17 +93,40 @@ def get_MIDP(start: str, end: str) -> pd.DataFrame:
             if df_not_empty:
                 logger.info("Successfully obtained market index price from Elexon 'MID/Stream' API endpoint"
                              )
+                df.columns = ['Dataset', 'Timestamp', 'provider', 'settlementDate', 'settlementPeriod', 'MIDP (£/MWh)',
+                              'Volume']
+                df = df.loc[:, ['provider', 'settlementDate', 'settlementPeriod', 'MIDP (£/MWh)', 'Volume']]
+                df = df.apply(pd.to_numeric, errors='ignore')
 
+                return df
             else:
                 logger.info("Invalid request - user needs to choose a valid date")
                 st.error(
                     f"Error obtaining market index price from Elexon API - please enter a valid date"
                 )
 
-            return df
     except Exception as e:
         logger.error("Error obtaining MIDP from Elexon 'MID/Stream'' API endpoint")
         raise CustomException(e, sys)
+
+
+def clean_MIDP(df: pd.DataFrame, values: str, weights: str) -> pd.DataFrame:
+    """
+    The MIDP endpoint from Elexon retrieves market index price data across 2 providers, namely N2EX and APX. This
+    function calculated the weighted average across these 2 providers where weights are the volume for each
+    corresponding provider. The weighted average is grouped by settlement period and the final df contains the weighted
+    average market index price per settlement period.
+    :param df: Market Index Data price df
+    :param values:
+    :param weights:
+    :return:
+    """
+    try:
+        df = df.groupby("settlementPeriod").apply(get_wavg, values=values, weights=weights).reset_index()
+        df.columns = ["settlementPeriod", "MIDP (£/MWh)"]
+        return df
+    except Exception as e:
+        st.error(f"Error when finding wighted average of MIDP: {e}")
 
 
 @st.cache_data(ttl=60, show_spinner='loading...')
@@ -145,3 +169,43 @@ def get_system_price(start: str, end: str) -> pd.DataFrame:
     except Exception as e:
         logger.error("Error obtaining system price from Elexon 'DERSYSDATA' API endpoint")
         raise CustomException(e, sys)
+
+
+def split_pns_df(df: pd.DataFrame, mid_price_df: pd.DataFrame, sys_price_df: pd.DataFrame):
+    """
+    Split PNs into 'Equal' and 'Not Equal'. When the 'levelFrom' and 'levelTo' columns are equal, the MIDP is multiplied
+    by the 'levelFrom' volume for Wholesale revenue calculation. This is marked by the variable 1 in the 'Equal' column.
+    When the 'levelFrom' and 'levelTo' columns are not equal for a BMU in a settlement period then that implies the
+    volume pn-ed has changed during the half hour settlement period. To calculate the subsequent wholesale revenue,
+    the net pn-ed volume is calculated in a separate column 'Net PN' and this throughput is multiplied by MIDP to
+    calculate revenue.
+    # FIXME add docstrings
+    :param sys_price_df:
+    :param mid_price_df:
+    :param df:
+    :return:
+    """
+    # check the PNs df to see where levelfrom and levelto are equal
+
+    try:
+
+        # merge the midp onto the pns so now each row has a unique price per sp
+        df = pd.merge(df, mid_price_df, on='settlementPeriod')
+        # then merge sys price onto same df
+        df = pd.merge(df, sys_price_df, on='settlementPeriod')
+
+        df = df.fillna(0)
+
+        # find timedelta
+        df['Hours'] = (df['timeTo'] - df['timeFrom']).dt.seconds / 3600
+        df['Equal'] = np.where(df['levelFrom'] == df['levelTo'], 1, 0)
+
+        not_eq_df = df[df['Equal'] == 0]
+        eq_df = df[df['Equal'] == 1]
+
+        # if levels aren't equal then sum the levels to get net throuhput
+        not_eq_df['Net PN'] = not_eq_df['levelFrom'] + not_eq_df['levelTo']
+
+        return eq_df, not_eq_df
+    except Exception as e:
+        st.error(f'Error obtaining final FPNs: {e}')
