@@ -73,20 +73,36 @@ def get_MIDP(start: str, end: str) -> pd.DataFrame:
     :param end: end date inputted by user in st.date_input
     :return: pd.DataFrame
     """
-    # Get API key from environment variable
-    APIKey = os.environ.get("ELEXON_API_KEY")
-    client = api.Client(APIKey)
+
+    url = f"https://data.elexon.co.uk/bmrs/api/v1/datasets/mid/stream?from={start}&to={end}&settlementPeriodFrom=1&settlementPeriodTo=48"
 
     try:
-        # FIXME error when calling get_MID
-        mid = client.get_MID(start_date=start, end_date=end)
-        mid.columns = ['datetime', 'record', 'provider', 'settlementDate', 'settlementPeriod', 'MIDP (£/MWh)',
-                       'Volume', 'Flag']
-        mid_subset = mid.loc[:, ['provider', 'settlementDate', 'settlementPeriod', 'MIDP (£/MWh)', 'Volume']]
-        mid_subset = mid_subset.apply(pd.to_numeric, errors='ignore')
-        return mid_subset
+        logger.info(
+            f"Entered the market index data price function, getting midp for settlement date: {start}"
+        )
+        with concurrent.futures.ThreadPoolExecutor(12) as executor:
+            # Submit requests to the ThreadPoolExecutor
+            future = executor.submit(requests.get, url)
+            response = future.result()
+            response.raise_for_status()
+            js = response.json()
+            df = pd.DataFrame(js)
+            df_not_empty = len(df) > 0
+
+            if df_not_empty:
+                logger.info("Successfully obtained market index price from Elexon 'MID/Stream' API endpoint"
+                             )
+
+            else:
+                logger.info("Invalid request - user needs to choose a valid date")
+                st.error(
+                    f"Error obtaining market index price from Elexon API - please enter a valid date"
+                )
+
+            return df
     except Exception as e:
-        st.error(f'Error retrieving MIDP from Elexon: {e}')
+        logger.error("Error obtaining MIDP from Elexon 'MID/Stream'' API endpoint")
+        raise CustomException(e, sys)
 
 
 @st.cache_data(ttl=60, show_spinner='loading...')
@@ -127,5 +143,5 @@ def get_system_price(start: str, end: str) -> pd.DataFrame:
             )
 
     except Exception as e:
-        logger.error("Error obtaining pns from Elexon 'DERSYSDATA' API endpoint")
+        logger.error("Error obtaining system price from Elexon 'DERSYSDATA' API endpoint")
         raise CustomException(e, sys)

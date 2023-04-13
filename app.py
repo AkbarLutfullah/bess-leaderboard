@@ -16,8 +16,8 @@ asset_ids_df = get_asset_ids()
 pns = get_physical_notifications(start=date, end=date, assets_df=asset_ids_df)
 
 # retrive market index data price for chosen settlement date
-# midp = get_MIDP(start=date, end=date)
+midp = get_MIDP(start=date, end=date)
 
 # retrieve system price for chosen settlement date
 sysprice = get_system_price(start=date, end=date)
-st.dataframe(sysprice, use_container_width=True)
+st.dataframe(midp, use_container_width=True)
