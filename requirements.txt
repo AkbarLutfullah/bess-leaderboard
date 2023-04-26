@@ -9,3 +9,4 @@ openpyxl
 requests
 ElexonDataPortal
 python-dotenv
+streamlit_aggrid
