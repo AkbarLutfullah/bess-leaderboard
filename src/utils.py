@@ -119,8 +119,7 @@ def plot_revenue_daily(df: pd.DataFrame):
     copy['Wholesale'] = (copy['Wholesale MIDP (£)'] * 365) / (copy['MW'])
     copy['BM'] = (copy['BM (£)'] * 365) / (copy['MW'])
     fig = px.bar(copy, x='Site', y=['DFR', 'Wholesale', 'BM'],
-                 labels={'variable': 'Category', 'value': '£'})
-    print(type(fig))
+                 labels={'variable': 'Category', 'value': '£/MW/yr'})
     return fig
 
 

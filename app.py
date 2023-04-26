@@ -13,11 +13,28 @@ import datetime
 from src.logger import logger
 
 # setup page config
-st.set_page_config(page_title="BESS Revenue Leaderboard", layout="wide")
+st.set_page_config(page_title="BESS Revenue", layout="wide", page_icon="📊", initial_sidebar_state='auto', )
+
+# setup sidebar
+st.sidebar.title("🔋 UK BESS Revenue")
+st.sidebar.caption("Performance of utility scale Lithium-ion batteries in the UK.")
+st.sidebar.markdown("Made by [Akbar Lutfullah](https://www.linkedin.com/in/akbar-lutfullah-b04881136/)")
+st.sidebar.markdown("---")
+st.sidebar.info("""##### The dashboard displays UK BESS (BM registered) energised assets with a nameplate capacity in excess of 5MW.
+
+##### Wholesale revenues are estimated using physical notifications (contracted volumes), and market index price. 
+
+##### Wholesale revenues using the system price are included in the dashboard but excluded in the total and annualised columns.
+
+##### BM revenues are calculated by multiplying the contracted bid-offer volumes with the accepted bid-offer prices.
+
+##### DFR revenues are the contracted auction fees.
+""")
+
 
 # set revenue home page header to leaderboard and bar icon
 # bring all modules into here
-st.title("UK BESS Fleet Revenue")
+st.title("Live BESS Fleet Dashboard :moneybag:")
 
 date = st.date_input(label='Select a date:', value=datetime.datetime.now().date())
 # read in all asset ids into df
@@ -63,12 +80,13 @@ format_df = format_revenue_reporting(df=df_dfr_ws_bm)
 csv = convert_df(df=format_df)
 timestamp = datetime.datetime.now()
 st.sidebar.download_button(
-    label="Download leaderboard",
+    label="Download data as csv",
     data=csv,
     key='leaderboard',
-    file_name=f'Harmonise_Leaderboard_{timestamp}.csv',
+    file_name=f'UK_Bess_Revenue_{timestamp}.csv',
     mime='text/csv',
 )
+st.sidebar.caption("""You can check out the source code [here](https://github.com/AkbarLutfullah/bess-leaderboard).""")
 with st.container():
     st.success(f"Showing {len(format_df)} BMUs for {date}")
     chart = st.checkbox(label='Show revenue chart', value=False,
@@ -95,4 +113,3 @@ with st.container():
             aggrid(df=format_df)
         else:
             aggrid(df=format_df)
-
