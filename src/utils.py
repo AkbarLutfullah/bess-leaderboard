@@ -20,7 +20,7 @@ def get_asset_ids() -> pd.DataFrame:
 
 
 def convert_columns_to_datetime(
-        df: pd.DataFrame, datetime_columns: List[str], datetime_formats: str = None
+    df: pd.DataFrame, datetime_columns: List[str], datetime_formats: str = None
 ) -> pd.DataFrame:
     """
     Convert df columns or column to datetime format
@@ -66,18 +66,34 @@ def format_revenue_reporting(df: pd.DataFrame):
     :return: revenue df
     """
     clean_df = df.fillna(0)
-    float_cols = ['DFR (£)', 'Wholesale MIDP (£)', 'Wholesale Sys (£)', 'BM (£)']
+    float_cols = ["DFR (£)", "Wholesale MIDP (£)", "Wholesale Sys (£)", "BM (£)"]
     clean_df[float_cols] = clean_df[float_cols].astype(int)
 
-    clean_df['Total (£)'] = clean_df['DFR (£)'] + clean_df['Wholesale MIDP (£)'] + clean_df['BM (£)']
-    clean_df['k/MW/yr'] = (clean_df['Total (£)'] * 365) / (clean_df['MW'] * 1000)
-    clean_df = clean_df.sort_values(by='k/MW/yr', ascending=False)
-    clean_df['k/MW/yr'] = clean_df['k/MW/yr'].astype(int)
+    clean_df["Total (£)"] = (
+        clean_df["DFR (£)"] + clean_df["Wholesale MIDP (£)"] + clean_df["BM (£)"]
+    )
+    clean_df["k/MW/yr"] = (clean_df["Total (£)"] * 365) / (clean_df["MW"] * 1000)
+    clean_df = clean_df.sort_values(by="k/MW/yr", ascending=False)
+    clean_df["k/MW/yr"] = clean_df["k/MW/yr"].astype(int)
     clean_df = clean_df.reset_index(drop=True)
     clean_df = clean_df.iloc[:, 2:]
-    clean_df = clean_df.loc[:,
-               ['Site', 'Owner', 'Optimiser', 'EFA Date', 'MW', 'MWh', 'DFR (£)', 'BM (£)', 'Wholesale MIDP (£)',
-                'Wholesale Sys (£)', 'Total (£)', 'k/MW/yr']]
+    clean_df = clean_df.loc[
+        :,
+        [
+            "Site",
+            "Owner",
+            "Optimiser",
+            "EFA Date",
+            "MW",
+            "MWh",
+            "DFR (£)",
+            "BM (£)",
+            "Wholesale MIDP (£)",
+            "Wholesale Sys (£)",
+            "Total (£)",
+            "k/MW/yr",
+        ],
+    ]
 
     return clean_df
 
@@ -86,23 +102,26 @@ def aggrid(df: pd.DataFrame):
     gb = GridOptionsBuilder.from_dataframe(df)
 
     gb.configure_auto_height(autoHeight=True)
-    gb.configure_default_column(groupable=True, value=True, enableRowGroup=True, aggFunc="sum", editable=True)
+    gb.configure_default_column(
+        groupable=True, value=True, enableRowGroup=True, aggFunc="sum", editable=True
+    )
     # gb.configure_grid_options(domLayout='normal')
-    gb.configure_pagination(enabled=False, paginationAutoPageSize=False, paginationPageSize=12)
-    gb.configure_first_column_as_index(headerText='Site')
+    gb.configure_pagination(
+        enabled=False, paginationAutoPageSize=False, paginationPageSize=12
+    )
+    gb.configure_first_column_as_index(headerText="Site")
     # sidebar stopped working after some other config changes mainly autosizing columns
     gb.configure_side_bar()
     gridOptions = gb.build()
 
-
     grid = AgGrid(
         df,
-        width='100%',
+        width="100%",
         gridOptions=gridOptions,
         enable_enterprise_modules=False,
         fit_columns_on_grid_load=True,
         allow_unsafe_jscode=True,
-        columns_auto_size_mode=ColumnsAutoSizeMode.FIT_CONTENTS
+        columns_auto_size_mode=ColumnsAutoSizeMode.FIT_CONTENTS,
     )
 
     return grid
@@ -115,15 +134,19 @@ def plot_revenue_daily(df: pd.DataFrame):
     :return fig:
     """
     copy = df.copy()
-    copy['DFR'] = (copy['DFR (£)'] * 365) / (copy['MW'])
-    copy['Wholesale'] = (copy['Wholesale MIDP (£)'] * 365) / (copy['MW'])
-    copy['BM'] = (copy['BM (£)'] * 365) / (copy['MW'])
-    fig = px.bar(copy, x='Site', y=['DFR', 'Wholesale', 'BM'],
-                 labels={'variable': 'Category', 'value': '£/MW/yr'})
+    copy["DFR"] = (copy["DFR (£)"] * 365) / (copy["MW"])
+    copy["Wholesale"] = (copy["Wholesale MIDP (£)"] * 365) / (copy["MW"])
+    copy["BM"] = (copy["BM (£)"] * 365) / (copy["MW"])
+    fig = px.bar(
+        copy,
+        x="Site",
+        y=["DFR", "Wholesale", "BM"],
+        labels={"variable": "Category", "value": "£/MW/yr"},
+    )
     return fig
 
 
-@st.cache_data(show_spinner='loading...')
+@st.cache_data(show_spinner="loading...")
 def convert_df(df):
     # IMPORTANT: Cache the conversion to prevent computation on every rerun
-    return df.to_csv().encode('utf-8')
+    return df.to_csv().encode("utf-8")
